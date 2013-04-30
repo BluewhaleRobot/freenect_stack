@@ -26,30 +26,32 @@ find_library(LIBFREENECT_LIBRARY
 # auto-generate dynamic reconfiguration GUI before catkin_package()
 generate_dynamic_reconfigure_options(cfg/Freenect.cfg)
 
-include_directories(include ${catkin_INCLUDE_DIRS} ${LIBFREENECT_INCLUDE_DIR})
 
-# CATKIN_MIGRATION: removed during catkin migration
-# rosbuild_add_boost_directories()
-
-#find_package(Boost REQUIRED COMPONENTS thread)
-#target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES})
-#add_executable(example examples/example.cpp)
-#target_link_libraries(example ${PROJECT_NAME})
+find_package(Boost REQUIRED COMPONENTS thread)
+include_directories(include
+                    ${catkin_INCLUDE_DIRS}
+                    ${Boost_INCLUDE_DIR}
+                    ${LIBFREENECT_INCLUDE_DIR})
 
 add_executable(freenect_node src/nodes/freenect_node.cpp)
-target_link_libraries(freenect_node ${catkin_LIBRARIES} ${LIBFREENECT_LIBRARIES})
+target_link_libraries(freenect_node
+                      ${catkin_LIBRARIES}
+                      ${LIBFREENECT_LIBRARY}
+                      ${Boost_LIBRARY})
 
 add_library(freenect_nodelet src/nodelets/driver.cpp)
+target_link_libraries(freenect_nodelet
+                      ${catkin_LIBRARIES}
+                      ${LIBFREENECT_LIBRARY}
+                      ${Boost_LIBRARY})
 
-catkin_package(
-    DEPENDS
-    libfreenect
-    CATKIN_DEPENDS
-    camera_info_manager
-    diagnostic_updater
-    dynamic_reconfigure
-    image_transport
-    nodelet
-    roscpp
-    sensor_msgs
-)
+catkin_package(DEPENDS
+               libfreenect
+               CATKIN_DEPENDS
+               camera_info_manager
+               diagnostic_updater
+               dynamic_reconfigure
+               image_transport
+               nodelet
+               roscpp
+               sensor_msgs)
