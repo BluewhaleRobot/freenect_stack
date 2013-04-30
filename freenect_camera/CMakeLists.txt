@@ -26,13 +26,15 @@ find_library(LIBFREENECT_LIBRARY
 # auto-generate dynamic reconfiguration GUI before catkin_package()
 generate_dynamic_reconfigure_options(cfg/Freenect.cfg)
 
-
+# resolve boost thread references
 find_package(Boost REQUIRED COMPONENTS thread)
+
 include_directories(include
                     ${catkin_INCLUDE_DIRS}
                     ${Boost_INCLUDE_DIR}
                     ${LIBFREENECT_INCLUDE_DIR})
 
+# build the node and nodelet
 add_executable(freenect_node src/nodes/freenect_node.cpp)
 target_link_libraries(freenect_node
                       ${catkin_LIBRARIES}
@@ -55,3 +57,11 @@ catkin_package(DEPENDS
                nodelet
                roscpp
                sensor_msgs)
+
+# install the node and nodelet
+install(TARGETS freenect_node
+        RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+        COMPONENT main)
+
+install(TARGETS freenect_nodelet
+        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})
