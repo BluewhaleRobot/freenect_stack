@@ -1,7 +1,7 @@
 #ifndef FREENECT_DRIVER_K8EEAIBB
 #define FREENECT_DRIVER_K8EEAIBB
 
-#include <libfreenect.h>
+#include <libfreenect/libfreenect.h>
 #include <freenect_camera/freenect_device.hpp>
 
 namespace freenect_camera {
