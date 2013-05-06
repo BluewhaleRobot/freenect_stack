@@ -9,7 +9,7 @@
   <maintainer email="jack.oquin@gmail.com">Jack O'Quin</maintainer>
   <maintainer email="piyushk@gmail.com">Piyush Khandelwal</maintainer>
   <author>Piyush Khandelwal</author>
-  <license>Apache 2.0/BSD</license>  
+  <license>BSD</license>  
 
   <url type="website">http://ros.org/wiki/freenect_stack</url>
   <url type="repository">https://github.com/ros-drivers/freenect_stack.git</url>
