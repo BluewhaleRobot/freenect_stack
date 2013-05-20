@@ -107,7 +107,7 @@ namespace freenect_camera {
       FreenectDriver() {
         freenect_init(&driver_, NULL);
         freenect_set_log_level(driver_, FREENECT_LOG_FATAL); // Prevent's printing stuff to the screen
-        freenect_select_subdevices(driver_, (freenect_device_flags)(FREENECT_DEVICE_MOTOR | FREENECT_DEVICE_CAMERA));
+        freenect_select_subdevices(driver_, (freenect_device_flags)(FREENECT_DEVICE_CAMERA));
         thread_running_ = false;
       }
 
