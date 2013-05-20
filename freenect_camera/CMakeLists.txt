@@ -65,3 +65,8 @@ install(TARGETS freenect_node
 
 install(TARGETS freenect_nodelet
         LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})
+
+# add xml file
+install(FILES freenect_nodelets.xml
+        DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+
