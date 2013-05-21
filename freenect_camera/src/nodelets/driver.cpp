@@ -235,6 +235,8 @@ void DriverNodelet::onInitImpl ()
     time_stamp_ = ros::Time(0,0);
     watch_dog_timer_ = nh.createTimer(ros::Duration(time_out_), &DriverNodelet::watchDog, this);
   }
+
+  device_->publishersAreReady();
 }
 
 void DriverNodelet::updateDiagnostics() {
@@ -326,8 +328,11 @@ void DriverNodelet::setupDevice ()
 
 void DriverNodelet::rgbConnectCb()
 {
+  //std::cout << "rgb connect cb called";
   boost::lock_guard<boost::mutex> lock(connect_mutex_);
+  //std::cout << "..." << std::endl;
   bool need_rgb = pub_rgb_.getNumSubscribers() > 0;
+  //std::cout << "  need_rgb: " << need_rgb << std::endl;
   
   if (need_rgb && !device_->isImageStreamRunning())
   {
@@ -355,15 +360,19 @@ void DriverNodelet::rgbConnectCb()
       time_stamp_ = ros::Time(0,0);
     }
   }
+  //std::cout << "rgb connect cb end..." << std::endl;
 }
 
 void DriverNodelet::depthConnectCb()
 {
+  //std::cout << "depth connect cb called";
   boost::lock_guard<boost::mutex> lock(connect_mutex_);
+  //std::cout << "..." << std::endl;
   /// @todo pub_projector_info_? Probably also subscribed to a depth image if you need it
   bool need_depth =
     device_->isDepthRegistered() ? pub_depth_registered_.getNumSubscribers() > 0 : pub_depth_.getNumSubscribers() > 0;
   /// @todo Warn if requested topics don't agree with Freenect registration setting
+  //std::cout << "  need_depth: " << need_depth << std::endl;
 
   if (need_depth && !device_->isDepthStreamRunning())
   {
@@ -377,6 +386,7 @@ void DriverNodelet::depthConnectCb()
     stopSynchronization();
     device_->stopDepthStream();
   }
+  //std::cout << "depth connect cb end..." << std::endl;
 }
 
 void DriverNodelet::irConnectCb()
@@ -488,6 +498,7 @@ void DriverNodelet::irCb(const ImageBuffer& ir_image, void* cookie)
 
 void DriverNodelet::publishRgbImage(const ImageBuffer& image, ros::Time time) const
 {
+  //NODELET_INFO_THROTTLE(1.0, "rgb image callback called");
   sensor_msgs::ImagePtr rgb_msg = boost::make_shared<sensor_msgs::Image >();
   rgb_msg->header.stamp = time;
   rgb_msg->header.frame_id = rgb_frame_id_;
@@ -521,6 +532,7 @@ void DriverNodelet::publishRgbImage(const ImageBuffer& image, ros::Time time) co
 
 void DriverNodelet::publishDepthImage(const ImageBuffer& depth, ros::Time time) const
 {
+  //NODELET_INFO_THROTTLE(1.0, "depth image callback called");
   bool registered = depth.is_registered;
 
   sensor_msgs::ImagePtr depth_msg = boost::make_shared<sensor_msgs::Image>();

@@ -4,6 +4,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/thread/mutex.hpp>
+#include <boost/date_time/posix_time/ptime.hpp>
 #include <stdexcept>
 
 #include <libfreenect/libfreenect.h>
@@ -30,14 +31,8 @@ namespace freenect_camera {
     public:
 
       FreenectDevice(freenect_context* driver, std::string serial) {
-        if (freenect_open_device_by_camera_serial(driver, &device_, serial.c_str()) < 0) {
-          throw std::runtime_error("[ERROR] Unable to open specified kinect");
-        }
-        freenect_set_user(device_, this);
-        freenect_set_depth_callback(device_, freenectDepthCallback);
-        freenect_set_video_callback(device_, freenectVideoCallback);
-        device_serial_ = serial;
-        registration_ = freenect_copy_registration(device_);
+        openDevice(driver, serial);
+        flushDeviceStreams();
 
         //Initialize default variables
         streaming_video_ = should_stream_video_ = false;
@@ -51,10 +46,31 @@ namespace freenect_camera {
         new_depth_format_ = FREENECT_DEPTH_MM;
         depth_buffer_.metadata.resolution = FREENECT_RESOLUTION_DUMMY;
         depth_buffer_.metadata.depth_format = FREENECT_DEPTH_DUMMY;
+
+        publishers_ready_ = false;
       }
+
 
       ~FreenectDevice() {
         shutdown();
+      }
+
+      void flushDeviceStreams() {
+        device_flush_start_time_ = boost::posix_time::microsec_clock::local_time();
+        device_flush_enabled_ = true; 
+        ROS_INFO("Starting a 3s RGB and Depth stream flush.");
+      }
+
+      void openDevice(freenect_context* driver, std::string serial) {
+        if (freenect_open_device_by_camera_serial(driver, &device_, serial.c_str()) < 0) {
+          throw std::runtime_error("[ERROR] Unable to open specified kinect");
+        }
+        freenect_set_user(device_, this);
+        freenect_set_depth_callback(device_, freenectDepthCallback);
+        freenect_set_video_callback(device_, freenectVideoCallback);
+        driver_ = driver;
+        device_serial_ = serial;
+        registration_ = freenect_copy_registration(device_);
       }
 
       void shutdown() {
@@ -137,6 +153,10 @@ namespace freenect_camera {
         ir_callback_ = boost::bind(callback, boost::ref(instance), _1, cookie);
       }
 
+      void publishersAreReady() {
+        publishers_ready_ = true;
+      }
+
       /* IMAGE SETTINGS FUNCTIONS */
 
       OutputMode getImageOutputMode() {
@@ -166,19 +186,21 @@ namespace freenect_camera {
 
       void stopImageStream() {
         boost::lock_guard<boost::recursive_mutex> lock(m_settings_);
+        //std::cout << "STOP IMAGE STREAM" << std::endl;
         should_stream_video_ = 
           (isImageStreamRunning()) ? false : streaming_video_;
       }
 
       void startImageStream() {
         boost::lock_guard<boost::recursive_mutex> lock(m_settings_);
+        //std::cout << "START IMAGE STREAM" << std::endl;
         new_video_format_ = FREENECT_VIDEO_BAYER;
         should_stream_video_ = true;
       }
 
       bool isImageStreamRunning() {
         boost::lock_guard<boost::recursive_mutex> lock(m_settings_);
-        return streaming_video_ && _isImageModeEnabled();
+        return streaming_video_ && _isImageModeEnabled() && !device_flush_enabled_;
       }
 
       void stopIRStream() {
@@ -248,7 +270,7 @@ namespace freenect_camera {
 
       bool isDepthStreamRunning() {
         boost::lock_guard<boost::recursive_mutex> lock(m_settings_);
-        return streaming_depth_;
+        return streaming_depth_ && !device_flush_enabled_;
       }
 
       /* LIBFREENECT ASYNC CALLBACKS */
@@ -273,6 +295,7 @@ namespace freenect_camera {
 
       friend class FreenectDriver;
 
+      freenect_context* driver_;
       freenect_device* device_;
       std::string device_serial_;
       freenect_registration registration_;
@@ -297,18 +320,42 @@ namespace freenect_camera {
        * is ready */
       boost::recursive_mutex m_settings_;
 
+      boost::posix_time::ptime device_flush_start_time_;
+      bool device_flush_enabled_;
+      bool publishers_ready_;
+
       void executeChanges() {
         boost::lock_guard<boost::recursive_mutex> lock(m_settings_);
+        //ROS_INFO_THROTTLE(1.0, "exec changes");
+
+        bool stop_device_flush = false;
+
+        if (device_flush_enabled_) {
+          boost::posix_time::ptime current_time = 
+              boost::posix_time::microsec_clock::local_time(); 
+          if ((current_time - device_flush_start_time_).total_milliseconds() > 3000) {
+            device_flush_enabled_ = false;
+            stop_device_flush = true;
+            ROS_INFO("Stopping device RGB and Depth stream flush.");
+          }
+        }
 
         bool change_video_settings = 
           video_buffer_.metadata.video_format != new_video_format_ ||
           video_buffer_.metadata.resolution != new_video_resolution_ ||
-          streaming_video_ != should_stream_video_;
+          ((streaming_video_ != should_stream_video_) && !device_flush_enabled_) ||
+          device_flush_enabled_ && !streaming_video_ ||
+          stop_device_flush;
 
         if (change_video_settings) {
+          ///ROS_INFO("change video called %i", should_stream_video_);
           // Stop video stream
-          freenect_stop_video(device_);
-          streaming_video_ = false;
+          if (streaming_video_) {
+            //ROS_INFO("  stopping video images...");
+            freenect_stop_video(device_);
+            streaming_video_ = false;
+            return;
+          }
           // Allocate buffer for video if settings have changed
           if (video_buffer_.metadata.resolution != new_video_resolution_ ||
               video_buffer_.metadata.video_format != new_video_format_) {
@@ -328,21 +375,32 @@ namespace freenect_camera {
             new_video_format_ = video_buffer_.metadata.video_format;
           }
           // Restart stream if required
-          if (should_stream_video_) {
-            freenect_start_video(device_);
+          if (should_stream_video_ || device_flush_enabled_) {
+            int rgb_out = freenect_start_video(device_);
+            //ROS_INFO("  streaming rgb images... %i", rgb_out);
             streaming_video_ = true;
           }
+
+          // Don't make more than 1 change at a time
+          return;
         }
 
         bool change_depth_settings = 
           depth_buffer_.metadata.depth_format != new_depth_format_ ||
           depth_buffer_.metadata.resolution != new_depth_resolution_ ||
-          streaming_depth_ != should_stream_depth_;
+          ((streaming_depth_ != should_stream_depth_) && !device_flush_enabled_) ||
+          device_flush_enabled_ && !streaming_depth_ ||
+          stop_device_flush;
 
         if (change_depth_settings) {
+          //ROS_INFO("change depth called");
           // Stop depth stream
-          freenect_stop_depth(device_);
-          streaming_depth_ = false;
+          if (streaming_depth_) {
+            //ROS_INFO("  stopping depth images...");
+            freenect_stop_depth(device_);
+            streaming_depth_ = false;
+            return;
+          }
           // Allocate buffer for depth if settings have changed
           if (depth_buffer_.metadata.resolution != new_depth_resolution_ ||
               depth_buffer_.metadata.depth_format != new_depth_format_) {
@@ -362,9 +420,11 @@ namespace freenect_camera {
             new_depth_format_ = depth_buffer_.metadata.depth_format;
           }
           // Restart stream if required
-          if (should_stream_depth_) {
-            freenect_start_depth(device_);
+          if (should_stream_depth_ || device_flush_enabled_) {
+            int depth_out = freenect_start_depth(device_);
+            //ROS_INFO("  streaming depth images... %i", depth_out);
             streaming_depth_ = true;
+            return;
           }
         }
       }
@@ -377,16 +437,20 @@ namespace freenect_camera {
       void depthCallback(void* depth) {
         boost::lock_guard<boost::mutex> buffer_lock(depth_buffer_.mutex);
         assert(depth == depth_buffer_.image_buffer.get());
-        depth_callback_.operator()(depth_buffer_);
+        if (publishers_ready_) {
+          depth_callback_.operator()(depth_buffer_);
+        }
       }
 
       void videoCallback(void* video) {
         boost::lock_guard<boost::mutex> buffer_lock(video_buffer_.mutex);
         assert(video == video_buffer_.image_buffer.get());
-        if (isImageMode(video_buffer_)) {
-          image_callback_.operator()(video_buffer_);
-        } else {
-          ir_callback_.operator()(video_buffer_);
+        if (publishers_ready_) {
+          if (isImageMode(video_buffer_)) {
+            image_callback_.operator()(video_buffer_);
+          } else {
+            ir_callback_.operator()(video_buffer_);
+          }
         }
       }
 
