@@ -14,10 +14,6 @@ find_package(catkin REQUIRED
 # CMake find_package() module.
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBFREENECT REQUIRED libfreenect)
-find_path(LIBFREENECT_INCLUDE_DIR
-  NAMES libfreenect.h
-  PATHS ${LIBFREENECT_INCLUDE_DIRS}
-)
 find_library(LIBFREENECT_LIBRARY
   NAMES freenect
   PATHS ${LIBFREENECT_LIBRARY_DIRS}
@@ -32,7 +28,7 @@ find_package(Boost REQUIRED COMPONENTS thread)
 include_directories(include
                     ${catkin_INCLUDE_DIRS}
                     ${Boost_INCLUDE_DIR}
-                    ${LIBFREENECT_INCLUDE_DIR})
+                    ${LIBFREENECT_INCLUDE_DIRS})
 
 # build the node and nodelet
 add_executable(freenect_node src/nodes/freenect_node.cpp)
