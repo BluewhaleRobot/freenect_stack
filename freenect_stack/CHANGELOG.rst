@@ -1,8 +1,16 @@
 Change history
 ==============
 
-0.2.0 (2013-05-06)
--------------------
+0.2.1 (05/21/2013)
+------------------
+
+ * Groovy release update
+ * Fixed nodelet description file installation (`#5`_)
+ * Fixed problem with streaming on a cold start of the machine (`#3`_)
+ * Minor CMake cleanup
+
+0.2.0 
+-----
 
  * Convert to catkin (`#2`_)
  * libfreenect is now released as a separate 3rd-party CMake package,
@@ -39,4 +47,7 @@ Change history
  * freenect_stack reorganized and released for ROS Fuerte.
 
 .. _`#2`: https://github.com/ros-drivers/freenect_stack/issues/2
+.. _`#3`: https://github.com/ros-drivers/freenect_stack/issues/3
+.. _`#5`: https://github.com/ros-drivers/freenect_stack/issues/5
+
 .. _`#8`: https://github.com/piyushk/freenect_stack/issues/8
