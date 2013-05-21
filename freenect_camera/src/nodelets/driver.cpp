@@ -230,9 +230,9 @@ void DriverNodelet::onInitImpl ()
   diagnostics_thread_ = boost::thread(boost::bind(&DriverNodelet::updateDiagnostics, this));
 
   // Create watch dog timer callback
-  if (param_nh.getParam("time_out", time_out_) && time_out_ > 0.0)
+  param_nh.param<double>("time_out", time_out_, 5.0);
+  if (time_out_ > 0.0)
   {
-    time_stamp_ = ros::Time(0,0);
     watch_dog_timer_ = nh.createTimer(ros::Duration(time_out_), &DriverNodelet::watchDog, this);
   }
 
@@ -345,7 +345,7 @@ void DriverNodelet::rgbConnectCb()
     
     device_->startImageStream();
     startSynchronization();
-    time_stamp_ = ros::Time(0,0); // starting an additional stream blocks for a while, could upset watchdog
+    rgb_time_stamp_ = ros::Time::now(); // update stamp for watchdog 
   }
   else if (!need_rgb && device_->isImageStreamRunning())
   {
@@ -357,7 +357,7 @@ void DriverNodelet::rgbConnectCb()
     if (need_ir && !device_->isIRStreamRunning())
     {
       device_->startIRStream();
-      time_stamp_ = ros::Time(0,0);
+      ir_time_stamp_ = ros::Time::now(); // update stamp for watchdog
     }
   }
   //std::cout << "rgb connect cb end..." << std::endl;
@@ -378,7 +378,7 @@ void DriverNodelet::depthConnectCb()
   {
     device_->startDepthStream();
     startSynchronization();
-    time_stamp_ = ros::Time(0,0); // starting an additional stream blocks for a while, could upset watchdog
+    depth_time_stamp_ = ros::Time::now(); // update stamp for watchdog
 
   }
   else if (!need_depth && device_->isDepthStreamRunning())
@@ -404,7 +404,7 @@ void DriverNodelet::irConnectCb()
     else
     {
       device_->startIRStream();
-      time_stamp_ = ros::Time(0,0); // starting an additional stream blocks for a while, could upset watchdog
+      ir_time_stamp_ = ros::Time::now(); // update stamp for watchdog
     }
   }
   else if (!need_ir)
@@ -434,7 +434,7 @@ void DriverNodelet::checkFrameCounters()
 void DriverNodelet::rgbCb(const ImageBuffer& image, void* cookie)
 {
   ros::Time time = ros::Time::now () + ros::Duration(config_.image_time_offset);
-  time_stamp_ = time; // for watchdog
+  rgb_time_stamp_ = time; // for watchdog
 
   bool publish = false;
   {
@@ -456,7 +456,7 @@ void DriverNodelet::rgbCb(const ImageBuffer& image, void* cookie)
 void DriverNodelet::depthCb(const ImageBuffer& depth_image, void* cookie)
 {
   ros::Time time = ros::Time::now () + ros::Duration(config_.depth_time_offset);
-  time_stamp_ = time; // for watchdog
+  depth_time_stamp_ = time; // for watchdog
 
   bool publish = false;
   {
@@ -478,7 +478,7 @@ void DriverNodelet::depthCb(const ImageBuffer& depth_image, void* cookie)
 void DriverNodelet::irCb(const ImageBuffer& ir_image, void* cookie)
 {
   ros::Time time = ros::Time::now() + ros::Duration(config_.depth_time_offset);
-  time_stamp_ = time; // for watchdog
+  ir_time_stamp_ = time; // for watchdog
 
   bool publish = false;
   {
@@ -831,17 +831,25 @@ OutputMode DriverNodelet::mapConfigMode2OutputMode (int mode) const
 
 void DriverNodelet::watchDog (const ros::TimerEvent& event)
 {
-  /// @todo Also watch IR
-  if ( !time_stamp_.isZero() && (device_->isDepthStreamRunning() || device_->isImageStreamRunning()) )
-  {
-    ros::Duration duration = ros::Time::now() - time_stamp_;
-    if (duration.toSec() >= time_out_)
-    {
-      NODELET_ERROR("Timeout");
-      watch_dog_timer_.stop();
-      throw std::runtime_error("Timeout occured in DriverNodelet");
-    }
+  bool timed_out = false;
+  if (!rgb_time_stamp_.isZero() && device_->isImageStreamRunning()) {
+    ros::Duration duration = ros::Time::now() - rgb_time_stamp_;
+    timed_out = timed_out || duration.toSec() > time_out_;
   }
+  if (!depth_time_stamp_.isZero() && device_->isDepthStreamRunning()) {
+    ros::Duration duration = ros::Time::now() - depth_time_stamp_;
+    timed_out = timed_out || duration.toSec() > time_out_;
+  }
+  if (!ir_time_stamp_.isZero() && device_->isIRStreamRunning()) {
+    ros::Duration duration = ros::Time::now() - ir_time_stamp_;
+    timed_out = timed_out || duration.toSec() > time_out_;
+  }
+
+  if (timed_out) {
+    ROS_INFO("Device timed out. Flushing device."); 
+    device_->flushDeviceStreams();
+  }
+
 }
 
 }

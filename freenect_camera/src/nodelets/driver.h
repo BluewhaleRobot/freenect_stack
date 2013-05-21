@@ -155,6 +155,9 @@ namespace freenect_camera
 
       /** \brief timeout value in seconds to throw TIMEOUT exception */
       double time_out_;
+      ros::Time rgb_time_stamp_;
+      ros::Time depth_time_stamp_;
+      ros::Time ir_time_stamp_;
       ros::Time time_stamp_;
       ros::Timer watch_dog_timer_;
 
