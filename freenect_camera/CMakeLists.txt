@@ -8,7 +8,8 @@ find_package(catkin REQUIRED
              image_transport
              nodelet
              roscpp
-             sensor_msgs)
+             sensor_msgs
+             pluginlib )
 
 # Resolve system dependency on libfreenect, which does not provide a
 # CMake find_package() module.
