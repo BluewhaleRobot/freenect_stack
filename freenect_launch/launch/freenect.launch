@@ -3,9 +3,8 @@
 
   <!-- "camera" should uniquely identify the device. All topics are pushed down
        into the "camera" namespace, and it is prepended to tf frame ids. -->
-  <arg name="ns" default="" /> <!-- if supplied, then should be fully resolved -->
-  <arg name="tf_prefix" default="$(arg ns)" />
   <arg name="camera" default="camera" />
+  <arg name="tf_prefix" default="" /> <!-- fully resolved tf prefix -->
   <arg name="rgb_frame_id"   default="$(arg tf_prefix)/$(arg camera)_rgb_optical_frame" />
   <arg name="depth_frame_id" default="$(arg tf_prefix)/$(arg camera)_depth_optical_frame" />
   <arg name="data_skip" default="0" />
@@ -37,25 +36,20 @@
        supplying a more accurate tf tree from calibration. -->
   <arg name="load_driver" default="true" />
   <arg name="publish_tf" default="true" />
+  <!-- Processing Modules -->
+  <arg name="rgb_processing"                  default="true"/>
+  <arg name="ir_processing"                   default="true"/>
+  <arg name="depth_processing"                default="true"/>
+  <arg name="depth_registered_processing"     default="true"/>
+  <arg name="disparity_processing"            default="true"/>
+  <arg name="disparity_registered_processing" default="true"/>
 
   <!-- Disable bond topics by default -->
   <arg name="bond" default="false" /> <!-- DEPRECATED, use respawn arg instead -->
   <arg name="respawn" default="$(arg bond)" />
 
-  <!-- Start nodelet manager in provided namespace -->
-  <arg name="manager" value="$(arg camera)_nodelet_manager" />
-  <arg name="debug" default="false" /> <!-- Run manager in GDB? -->
-  <include file="$(find freenect_launch)/launch/includes/manager.launch">
-    <arg name="name" value="$(arg manager)" />
-    <arg name="debug" value="$(arg debug)" />
-  </include>
-
-  <!-- figure out the resolved nodelet manager namespace -->
-  <arg name="resolved_manager" value="$(arg ns)/$(arg manager)" />
-
-  <!-- launch desired constellation of processing nodelets -->
-  <arg name="processing_constellation_file"
-    default="$(find freenect_launch)/launch/includes/processing.launch" />
+  <!-- Worker threads for the nodelet manager -->
+  <arg name="num_worker_threads" default="4" />
 
   <!-- enable libfreenect debug logging -->
   <arg name="libfreenect_debug" default="false" />
@@ -72,11 +66,20 @@
   <!-- Push down all topics/nodelets into "camera" namespace -->
   <group ns="$(arg camera)">
 
+    <!-- Start nodelet manager in provided namespace -->
+    <arg name="manager" value="$(arg camera)_nodelet_manager" />
+    <arg name="debug" default="false" /> <!-- Run manager in GDB? -->
+    <include file="$(find rgbd_launch)/launch/includes/manager.launch">
+      <arg name="name"                value="$(arg manager)" />
+      <arg name="debug"               value="$(arg debug)" />
+      <arg name="num_worker_threads"  value="$(arg num_worker_threads)" />
+    </include>
+
     <!-- Load driver -->
     <include if="$(arg load_driver)"
 	     file="$(find freenect_launch)/launch/includes/device.launch">
       <!-- Could really use some syntactic sugar for this -->
-      <arg name="manager"               value="$(arg resolved_manager)" /> <!-- fully resolved -->
+      <arg name="manager"               value="$(arg manager)" />
       <arg name="device_id"             value="$(arg device_id)" />
       <arg name="rgb_frame_id"          value="$(arg rgb_frame_id)" />
       <arg name="depth_frame_id"        value="$(arg depth_frame_id)" />
@@ -99,25 +102,31 @@
       <arg name="diagnostics_tolerance"     value="$(arg diagnostics_tolerance)" />
       <arg name="diagnostics_window_time"   value="$(arg diagnostics_window_time)" />
     </include>
-
+    
     <!-- Load standard constellation of processing nodelets -->
-    <include file="$(arg processing_constellation_file)">
-      <arg name="manager"               value="$(arg resolved_manager)" /> <!-- Fully resolved -->
-      <arg name="rgb"                   value="$(arg rgb)" />
-      <arg name="ir"                    value="$(arg ir)" />
-      <arg name="depth"                 value="$(arg depth)" />
-      <arg name="depth_registered"      value="$(arg depth_registered)" />
-      <arg name="projector"             value="$(arg projector)" />
-      <arg name="respawn"               value="$(arg respawn)" />
+    <include file="$(find rgbd_launch)/launch/includes/processing.launch">
+      <arg name="manager"                         value="$(arg manager)" />
+      <arg name="rgb"                             value="$(arg rgb)" />
+      <arg name="ir"                              value="$(arg ir)" />
+      <arg name="depth"                           value="$(arg depth)" />
+      <arg name="depth_registered"                value="$(arg depth_registered)" />
+      <arg name="projector"                       value="$(arg projector)" />
+      <arg name="respawn"                         value="$(arg respawn)" />
+      <arg name="rgb_processing"                  value="$(arg rgb_processing)" />
+      <arg name="ir_processing"                   value="$(arg ir_processing)" />
+      <arg name="depth_processing"                value="$(arg depth_processing)" />
+      <arg name="depth_registered_processing"     value="$(arg depth_registered_processing)" />
+      <arg name="disparity_processing"            value="$(arg disparity_processing)" />
+      <arg name="disparity_registered_processing" value="$(arg disparity_registered_processing)" />
     </include>
-
+  
   </group> <!-- camera -->
 
   <!-- Load reasonable defaults for the relative pose between cameras -->
-  <param name="tf_prefix" value="$(arg tf_prefix)" /> <!-- for static transform publisher -->
   <include if="$(arg publish_tf)"
-	   file="$(find freenect_launch)/launch/kinect_frames.launch">
+	   file="$(find rgbd_launch)/launch/kinect_frames.launch">
     <arg name="camera" value="$(arg camera)" />
+    <arg name="tf_prefix" value="$(arg tf_prefix)" />
   </include>
 
 </launch>

@@ -1,8 +1,9 @@
 <launch>
-  <group ns="robot1">
+  <arg name="ns" default="robot1" />
+  <arg name="tf_prefix" default="/robot1_prefix" />
+  <group ns="$(arg ns)">
     <include file="$(find freenect_launch)/launch/freenect.launch">
-      <arg name="ns" value="/robot1" />
-      <arg name="tf_prefix" value="/robot1_prefix" />
+      <arg name="tf_prefix" value="$(arg tf_prefix)" />
     </include>
   </group>
 </launch>
