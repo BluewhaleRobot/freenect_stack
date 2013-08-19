@@ -7,7 +7,6 @@
   <arg name="publish_metric_rect" default="" />
   <arg name="allow_software_registration" default="" />
   <arg name="allow_hardware_registration" default="" />
-  <arg name="points_xyzrgb" default="" />
   <arg name="respawn" default="" />
   <arg name="rgb" default="" />
   <arg name="depth" default="" />
