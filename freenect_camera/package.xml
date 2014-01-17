@@ -1,6 +1,6 @@
 <package>
   <name>freenect_camera</name>
-  <version>0.3.0</version>
+  <version>0.3.1</version>
   <description>
     A libfreenect-based ROS driver for the Microsoft Kinect.  This is
     a port of the OpenNI driver that uses libfreenect instead, because
