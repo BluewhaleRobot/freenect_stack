@@ -2,6 +2,10 @@
 Changelog for package freenect_camera
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.3.2 (2014-01-17)
+------------------
+* Add include for log4cxx/logger.h (`#10`_).
+
 0.3.1 (2014-01-16)
 ------------------
 * Add dependency on log4cxx (`#10`_).

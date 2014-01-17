@@ -40,6 +40,7 @@
 #include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/distortion_models.h>
 #include <boost/algorithm/string/replace.hpp>
+#include <log4cxx/logger.h>
 
 using namespace std;
 namespace freenect_camera {
