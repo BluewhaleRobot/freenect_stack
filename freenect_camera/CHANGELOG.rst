@@ -2,8 +2,8 @@
 Changelog for package freenect_camera
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-0.3.1 (forthcoming)
--------------------
+0.3.1 (2014-01-16)
+------------------
 * Add dependency on log4cxx (`#10`_).
 
 0.3.0 (2013-08-19)
