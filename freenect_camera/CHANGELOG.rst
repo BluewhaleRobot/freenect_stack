@@ -2,6 +2,10 @@
 Changelog for package freenect_camera
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.3.1 (forthcoming)
+-------------------
+* Add dependency on log4cxx (`#10`_).
+
 0.3.0 (2013-08-19)
 ------------------
 * Added dependency on pluginlib.
@@ -26,3 +30,5 @@ Changelog for package freenect_camera
 * changed header file location to refrain from patching libfreenect internally
 * removed redundant device shutdown call (done by FreenectDriver already)
 * reorganized stack for release
+
+.. _`#10`: https://github.com/ros-drivers/freenect_stack/issues/10

@@ -2,6 +2,9 @@
 Changelog for package freenect_launch
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.3.1 (forthcoming)
+-------------------
+
 0.3.0 (2013-08-19)
 ------------------
 * fixed cmake and package.xml for rgbd_launch migration

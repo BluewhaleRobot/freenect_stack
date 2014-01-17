@@ -2,8 +2,9 @@
   <name>freenect_camera</name>
   <version>0.3.0</version>
   <description>
-    A libfreenect based ROS driver for the Microsoft Kinect. This is a
-    port of the OpenNI driver to use libfreenect.
+    A libfreenect-based ROS driver for the Microsoft Kinect.  This is
+    a port of the OpenNI driver that uses libfreenect instead, because
+    on some systems with some devices it works better.
   </description>
 
   <maintainer email="jack.oquin@gmail.com">Jack O'Quin</maintainer>
@@ -26,6 +27,7 @@
   <build_depend>dynamic_reconfigure</build_depend>
   <build_depend>image_transport</build_depend>
   <build_depend>libfreenect</build_depend>
+  <build_depend>log4cxx</build_depend>
   <build_depend>nodelet</build_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>sensor_msgs</build_depend>
@@ -36,6 +38,7 @@
   <run_depend>dynamic_reconfigure</run_depend>
   <run_depend>image_transport</run_depend>
   <run_depend>libfreenect</run_depend>
+  <run_depend>log4cxx</run_depend>
   <run_depend>nodelet</run_depend>
   <run_depend>roscpp</run_depend>
   <run_depend>sensor_msgs</run_depend>
