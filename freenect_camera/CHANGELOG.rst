@@ -2,8 +2,8 @@
 Changelog for package freenect_camera
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.4.0 (2015-01-30)
+------------------
 * Update header file to match libfreenect v0.5.1
 * Contributors: Piyush Khandelwal
 
