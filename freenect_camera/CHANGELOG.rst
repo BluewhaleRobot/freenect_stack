@@ -2,6 +2,11 @@
 Changelog for package freenect_camera
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Update header file to match libfreenect v0.5.1
+* Contributors: Piyush Khandelwal
+
 0.3.2 (2014-01-17)
 ------------------
 * Add include for log4cxx/logger.h (`#10`_).
