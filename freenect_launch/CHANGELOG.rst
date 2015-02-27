@@ -2,8 +2,8 @@
 Changelog for package freenect_launch
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.4.1 (2015-02-27)
+------------------
 * fix tf_prefix leading slash issue `#13 <https://github.com/ros-drivers/freenect_stack/issues/13>`_
 * Contributors: Jihoon Lee, Piyush Khandelwal
 
