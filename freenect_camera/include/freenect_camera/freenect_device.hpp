@@ -8,7 +8,7 @@
 #include <stdexcept>
 
 #include <libfreenect/libfreenect.h>
-#include <libfreenect/libfreenect-registration.h>
+#include <libfreenect/libfreenect_registration.h>
 #include <freenect_camera/image_buffer.hpp>
 
 namespace freenect_camera {
