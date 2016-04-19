@@ -40,6 +40,7 @@ target_link_libraries(freenect_node
                       ${catkin_LIBRARIES}
                       ${LIBFREENECT_LIBRARY}
                       ${Boost_LIBRARY})
+add_dependencies(freenect_node ${PROJECT_NAME}_gencfg)
 
 add_library(freenect_nodelet src/nodelets/driver.cpp)
 target_link_libraries(freenect_nodelet
@@ -47,6 +48,7 @@ target_link_libraries(freenect_nodelet
                       ${LIBFREENECT_LIBRARY}
                       ${Boost_LIBRARY}
                       ${LOG4CXX_LIBRARIES})
+add_dependencies(freenect_nodelet ${PROJECT_NAME}_gencfg)
 
 catkin_package(DEPENDS
                libfreenect
