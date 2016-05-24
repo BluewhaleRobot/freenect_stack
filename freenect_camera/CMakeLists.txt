@@ -31,6 +31,7 @@ find_package(Boost REQUIRED COMPONENTS thread)
 include_directories(include
                     ${catkin_INCLUDE_DIRS}
                     ${Boost_INCLUDE_DIR}
+                    ${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake
                     ${LIBFREENECT_INCLUDE_DIRS}
                     ${LOG4CXX_INCLUDE_DIRS})
 
