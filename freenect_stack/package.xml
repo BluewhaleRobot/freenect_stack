@@ -1,7 +1,7 @@
 <package>
 
   <name>freenect_stack</name>
-  <version>0.4.1</version>
+  <version>0.4.2</version>
   <description>
     A libfreenect-based ROS driver for the Microsoft Kinect
   </description>
