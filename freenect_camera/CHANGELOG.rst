@@ -2,6 +2,13 @@
 Changelog for package freenect_camera
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* add include path for dynamic reconfigure
+* Fixed cmake dependency issue. `#28 <https://github.com/ros-drivers/freenect_stack/issues/28>`_
+* Including log4cxx in CMakefile file. Compilation on OS X fails without this.
+* Contributors: Nick Hawes, Piyush Khandelwal, Tully Foote
+
 0.4.1 (2015-02-27)
 ------------------
 
