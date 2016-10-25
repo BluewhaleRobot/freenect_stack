@@ -25,6 +25,12 @@
   <arg name="diagnostics_tolerance" default="0.05" />
   <arg name="diagnostics_window_time" default="5.0" />
 
+  <arg name="motor_processing" default="false" />
+  <arg name="audio_processing" default="false" />
+  <arg name="rgb_processing" default="false" />
+  <arg name="ir_processing" default="false" />
+  <arg name="depth_processing" default="false" />
+
   <arg name="respawn" default="false" />
   <arg     if="$(arg respawn)" name="bond" value="" />
   <arg unless="$(arg respawn)" name="bond" value="--no-bond" />
@@ -56,6 +62,11 @@
     <param name="diagnostics_min_frequency" value="$(arg diagnostics_min_frequency)" />
     <param name="diagnostics_tolerance"     value="$(arg diagnostics_tolerance)" />
     <param name="diagnostics_window_time"   value="$(arg diagnostics_window_time)" />
+    <param name="motor_processing"                value="$(arg motor_processing)" />
+    <param name="audio_processing"                value="$(arg audio_processing)" />
+    <param name="rgb_processing"                  value="$(arg rgb_processing)" />
+    <param name="ir_processing"                   value="$(arg ir_processing)" />
+    <param name="depth_processing"                value="$(arg depth_processing)" />
 
     <remap from="ir" to="$(arg ir)" />
     <remap from="rgb" to="$(arg rgb)" />

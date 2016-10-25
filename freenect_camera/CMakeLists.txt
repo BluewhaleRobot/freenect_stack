@@ -43,7 +43,7 @@ target_link_libraries(freenect_node
                       ${Boost_LIBRARY})
 add_dependencies(freenect_node ${PROJECT_NAME}_gencfg)
 
-add_library(freenect_nodelet src/nodelets/driver.cpp)
+add_library(freenect_nodelet src/nodelets/driver.cpp )
 target_link_libraries(freenect_nodelet
                       ${catkin_LIBRARIES}
                       ${LIBFREENECT_LIBRARY}

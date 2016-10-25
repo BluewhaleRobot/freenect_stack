@@ -36,11 +36,13 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *
  */
+
 #include "driver.h" /// @todo Get rid of this header entirely?
 #include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/distortion_models.h>
 #include <boost/algorithm/string/replace.hpp>
 #include <log4cxx/logger.h>
+
 
 using namespace std;
 namespace freenect_camera {
@@ -54,8 +56,12 @@ DriverNodelet::~DriverNodelet ()
   // Interrupt and close diagnostics thread
   close_diagnostics_ = true;
   diagnostics_thread_.join();
-
-  FreenectDriver& driver = FreenectDriver::getInstance ();
+  if(motor_processing_)
+  {
+    close_tiltThread_ =true;
+    tilt_thread_.join();
+  }
+  FreenectDriver& driver = FreenectDriver::getInstance(subdevs_);
   driver.shutdown();
 
   /// @todo Test watchdog timer for race conditions. May need to use a separate callback queue
@@ -64,6 +70,7 @@ DriverNodelet::~DriverNodelet ()
 
 void DriverNodelet::onInit ()
 {
+
   // Setting up device can take awhile but onInit shouldn't block, so we spawn a
   // new thread to do all the initialization
   init_thread_ = boost::thread(boost::bind(&DriverNodelet::onInitImpl, this));
@@ -71,9 +78,10 @@ void DriverNodelet::onInit ()
 
 void DriverNodelet::onInitImpl ()
 {
-  ros::NodeHandle& nh       = getNodeHandle();        // topics
-  ros::NodeHandle& param_nh = getPrivateNodeHandle(); // parameters
 
+  ros::NodeHandle& nh       = this->getNodeHandle();        // topics
+  ros::NodeHandle& param_nh = this->getPrivateNodeHandle(); // parameters
+  num_frame_=1;
   // Allow remapping namespaces rgb, ir, depth, depth_registered
   image_transport::ImageTransport it(nh);
   ros::NodeHandle rgb_nh(nh, "rgb");
@@ -95,12 +103,32 @@ void DriverNodelet::onInitImpl ()
 
   // Initialize the sensor, but don't start any streams yet. That happens in the connection callbacks.
   updateModeMaps();
+
+  //get subdevs
+  param_nh.param("motor_processing", motor_processing_, false);
+  param_nh.param("audio_processing", audio_processing_, true);
+  param_nh.param("rgb_processing", rgb_processing_, false);
+  param_nh.param("ir_processing", ir_processing_, false);
+  param_nh.param("depth_processing", depth_processing_, false);
+  subdevs_=(freenect_device_flags)(0);
+  if(!(motor_processing_||audio_processing_||rgb_processing_||ir_processing_||depth_processing_))
+  {
+    subdevs_=(freenect_device_flags)(FREENECT_DEVICE_AUDIO);
+  }
+  if(motor_processing_) subdevs_=(freenect_device_flags)(subdevs_|FREENECT_DEVICE_MOTOR);
+  if(audio_processing_)
+  {
+    subdevs_=(freenect_device_flags)(subdevs_|FREENECT_DEVICE_AUDIO);
+  }
+  if(rgb_processing_||ir_processing_||depth_processing_) subdevs_=(freenect_device_flags)(subdevs_|FREENECT_DEVICE_CAMERA);
+
+
   setupDevice();
 
   // Initialize dynamic reconfigure
   reconfigure_server_.reset( new ReconfigureServer(param_nh) );
-  reconfigure_server_->setCallback(boost::bind(&DriverNodelet::configCb, this, _1, _2));
 
+  reconfigure_server_->setCallback(boost::bind(&DriverNodelet::configCb, this, _1, _2));
   // Camera TF frames
   param_nh.param("rgb_frame_id",   rgb_frame_id_,   string("/openni_rgb_optical_frame"));
   param_nh.param("depth_frame_id", depth_frame_id_, string("/openni_depth_optical_frame"));
@@ -134,12 +162,26 @@ void DriverNodelet::onInitImpl ()
 
   double diagnostics_max_frequency, diagnostics_min_frequency;
   double diagnostics_tolerance, diagnostics_window_time;
+
+
   param_nh.param("enable_rgb_diagnostics", enable_rgb_diagnostics_, false);
+
+
   param_nh.param("enable_ir_diagnostics", enable_ir_diagnostics_, false);
+
+
   param_nh.param("enable_depth_diagnostics", enable_depth_diagnostics_, false);
+
+
   param_nh.param("diagnostics_max_frequency", diagnostics_max_frequency, 30.0);
+
+
   param_nh.param("diagnostics_min_frequency", diagnostics_min_frequency, 30.0);
+
+
   param_nh.param("diagnostics_tolerance", diagnostics_tolerance, 0.05);
+
+
   param_nh.param("diagnostics_window_time", diagnostics_window_time, 5.0);
 
   // Suppress some of the output from loading camera calibrations (kinda hacky)
@@ -154,7 +196,7 @@ void DriverNodelet::onInitImpl ()
   log4cxx::LoggerPtr logger_its = log4cxx::Logger::getLogger("ros.image_transport.sync");
   logger_its->setLevel(log4cxx::Level::getError());
   ros::console::notifyLoggerLevelsChanged();
-  
+
   // Load the saved calibrations, if they exist
   rgb_info_manager_ = boost::make_shared<camera_info_manager::CameraInfoManager>(rgb_nh, rgb_name, rgb_info_url);
   ir_info_manager_  = boost::make_shared<camera_info_manager::CameraInfoManager>(ir_nh,  ir_name,  ir_info_url);
@@ -181,51 +223,70 @@ void DriverNodelet::onInitImpl ()
     std::string hardware_id = std::string(device_->getProductName()) + "-" +
         std::string(device_->getSerialNumber());
     diagnostic_updater_->setHardwareID(hardware_id);
-    
+
+
     // Asus Xtion PRO does not have an RGB camera
-    if (device_->hasImageStream())
+    if (device_->hasImageStream()&&rgb_processing_)
     {
       image_transport::SubscriberStatusCallback itssc = boost::bind(&DriverNodelet::rgbConnectCb, this);
       ros::SubscriberStatusCallback rssc = boost::bind(&DriverNodelet::rgbConnectCb, this);
       pub_rgb_ = rgb_it.advertiseCamera("image_raw", 1, itssc, itssc, rssc, rssc);
       if (enable_rgb_diagnostics_) {
         pub_rgb_freq_.reset(new TopicDiagnostic("RGB Image", *diagnostic_updater_,
-            FrequencyStatusParam(&pub_freq_min_, &pub_freq_max_, 
+            FrequencyStatusParam(&pub_freq_min_, &pub_freq_max_,
                 diagnostics_tolerance, diagnostics_window_time)));
       }
     }
 
-    if (device_->hasIRStream())
+    if (device_->hasIRStream()&&ir_processing_)
     {
       image_transport::SubscriberStatusCallback itssc = boost::bind(&DriverNodelet::irConnectCb, this);
       ros::SubscriberStatusCallback rssc = boost::bind(&DriverNodelet::irConnectCb, this);
       pub_ir_ = ir_it.advertiseCamera("image_raw", 1, itssc, itssc, rssc, rssc);
       if (enable_ir_diagnostics_) {
         pub_ir_freq_.reset(new TopicDiagnostic("IR Image", *diagnostic_updater_,
-            FrequencyStatusParam(&pub_freq_min_, &pub_freq_max_, 
+            FrequencyStatusParam(&pub_freq_min_, &pub_freq_max_,
                 diagnostics_tolerance, diagnostics_window_time)));
       }
     }
 
-    if (device_->hasDepthStream())
+    if (device_->hasDepthStream()&&depth_processing_)
     {
       image_transport::SubscriberStatusCallback itssc = boost::bind(&DriverNodelet::depthConnectCb, this);
       ros::SubscriberStatusCallback rssc = boost::bind(&DriverNodelet::depthConnectCb, this);
       pub_depth_ = depth_it.advertiseCamera("image_raw", 1, itssc, itssc, rssc, rssc);
       if (enable_depth_diagnostics_) {
         pub_depth_freq_.reset(new TopicDiagnostic("Depth Image", *diagnostic_updater_,
-            FrequencyStatusParam(&pub_freq_min_, &pub_freq_max_, 
+            FrequencyStatusParam(&pub_freq_min_, &pub_freq_max_,
                 diagnostics_tolerance, diagnostics_window_time)));
       }
 
       pub_projector_info_ = projector_nh.advertise<sensor_msgs::CameraInfo>("camera_info", 1, rssc, rssc);
-      
+
       if (device_->isDepthRegistrationSupported()) {
         pub_depth_registered_ = depth_registered_it.advertiseCamera("image_raw", 1, itssc, itssc, rssc, rssc);
       }
     }
   }
 
+  //stop camera stream
+  if(subdevs_&FREENECT_DEVICE_CAMERA)
+  {
+    stopSynchronization();
+    if(!depth_processing_ && device_->isDepthStreamRunning())
+    {
+      device_->stopDepthStream();
+    }
+    if(!rgb_processing_ && device_->isImageStreamRunning())
+    {
+      device_->stopImageStream();
+    }
+    if(!ir_processing_ && device_->isIRStreamRunning())
+    {
+      device_->stopIRStream();
+    }
+    startSynchronization();
+  }
   // Create separate diagnostics thread
   close_diagnostics_ = false;
   diagnostics_thread_ = boost::thread(boost::bind(&DriverNodelet::updateDiagnostics, this));
@@ -238,6 +299,16 @@ void DriverNodelet::onInitImpl ()
   }
 
   device_->publishersAreReady();
+
+  // Create separate tilt motor thread
+  if(motor_processing_)
+  {
+    close_tiltThread_ = false;
+    tiltDriver_= TiltDriver(device_,&close_tiltThread_);
+    tilt_thread_ = boost::thread(boost::bind(&TiltDriver::run, &tiltDriver_));
+  }
+
+
 }
 
 void DriverNodelet::updateDiagnostics() {
@@ -250,8 +321,8 @@ void DriverNodelet::updateDiagnostics() {
 void DriverNodelet::setupDevice ()
 {
   // Initialize the openni device
-  FreenectDriver& driver = FreenectDriver::getInstance();
-
+  FreenectDriver& driver = FreenectDriver::getInstance(subdevs_);
+  ROS_INFO("subdevs: %d\n",subdevs_);
   // Enable debugging in libfreenect if requested
   if (libfreenect_debug_)
     driver.enableDebug();
@@ -322,9 +393,11 @@ void DriverNodelet::setupDevice ()
   NODELET_INFO ("Opened '%s' on bus %d:%d with serial number '%s'", device_->getProductName (),
                 device_->getBus (), device_->getAddress (), device_->getSerialNumber ());
 
-  device_->registerImageCallback(&DriverNodelet::rgbCb,   *this);
-  device_->registerDepthCallback(&DriverNodelet::depthCb, *this);
-  device_->registerIRCallback   (&DriverNodelet::irCb,    *this);
+  if(subdevs_&FREENECT_DEVICE_CAMERA) device_->registerImageCallback(&DriverNodelet::rgbCb,   *this);
+  if(subdevs_&FREENECT_DEVICE_CAMERA) device_->registerDepthCallback(&DriverNodelet::depthCb, *this);
+  if(subdevs_&FREENECT_DEVICE_CAMERA) device_->registerIRCallback   (&DriverNodelet::irCb,    *this);
+
+
 }
 
 void DriverNodelet::rgbConnectCb()
@@ -334,7 +407,7 @@ void DriverNodelet::rgbConnectCb()
   //std::cout << "..." << std::endl;
   bool need_rgb = pub_rgb_.getNumSubscribers() > 0;
   //std::cout << "  need_rgb: " << need_rgb << std::endl;
-  
+
   if (need_rgb && !device_->isImageStreamRunning())
   {
     // Can't stream IR and RGB at the same time. Give RGB preference.
@@ -343,10 +416,10 @@ void DriverNodelet::rgbConnectCb()
       NODELET_ERROR("Cannot stream RGB and IR at the same time. Streaming RGB only.");
       device_->stopIRStream();
     }
-    
+
     device_->startImageStream();
     startSynchronization();
-    rgb_time_stamp_ = ros::Time::now(); // update stamp for watchdog 
+    rgb_time_stamp_ = ros::Time::now(); // update stamp for watchdog
   }
   else if (!need_rgb && device_->isImageStreamRunning())
   {
@@ -394,7 +467,7 @@ void DriverNodelet::irConnectCb()
 {
   boost::lock_guard<boost::mutex> lock(connect_mutex_);
   bool need_ir = pub_ir_.getNumSubscribers() > 0;
-  
+
   if (need_ir && !device_->isIRStreamRunning())
   {
     // Can't stream IR and RGB at the same time
@@ -458,7 +531,12 @@ void DriverNodelet::depthCb(const ImageBuffer& depth_image, void* cookie)
 {
   ros::Time time = ros::Time::now () + ros::Duration(config_.depth_time_offset);
   depth_time_stamp_ = time; // for watchdog
-
+  if((num_frame_%3==0))
+  {
+    num_frame_++;
+    return;//20hz
+  }
+  num_frame_++;
   bool publish = false;
   {
       boost::unique_lock<boost::mutex> counter_lock(counter_mutex_);
@@ -525,7 +603,7 @@ void DriverNodelet::publishRgbImage(const ImageBuffer& image, ros::Time time) co
   }
   rgb_msg->data.resize(rgb_msg->height * rgb_msg->step);
   fillImage(image, reinterpret_cast<void*>(&rgb_msg->data[0]));
-  
+
   pub_rgb_.publish(rgb_msg, getRgbCameraInfo(image, time));
   if (enable_rgb_diagnostics_)
       pub_rgb_freq_->tick();
@@ -591,7 +669,7 @@ void DriverNodelet::publishIrImage(const ImageBuffer& ir, ros::Time time) const
 
   pub_ir_.publish(ir_msg, getIrCameraInfo(ir, time));
 
-  if (enable_ir_diagnostics_) 
+  if (enable_ir_diagnostics_)
       pub_ir_freq_->tick();
 }
 
@@ -710,7 +788,7 @@ void DriverNodelet::configCb(Config &config, uint32_t level)
   if (device_->hasImageStream ())
   {
     old_image_mode = device_->getImageOutputMode ();
-     
+
     // does the device support the new image mode?
     image_mode = mapConfigMode2OutputMode (config.image_mode);
 
@@ -726,7 +804,7 @@ void DriverNodelet::configCb(Config &config, uint32_t level)
       image_mode = compatible_image_mode = default_mode;
     }
   }
-  
+
   OutputMode old_depth_mode, depth_mode, compatible_depth_mode;
   old_depth_mode = device_->getDepthOutputMode();
   depth_mode = mapConfigMode2OutputMode (config.depth_mode);
@@ -737,7 +815,7 @@ void DriverNodelet::configCb(Config &config, uint32_t level)
                  "Falling back to default depth output mode %d.",
                   depth_mode,
                   default_mode);
-    
+
     config.depth_mode = mapMode2ConfigMode(default_mode);
     depth_mode = compatible_depth_mode = default_mode;
   }
@@ -847,8 +925,8 @@ void DriverNodelet::watchDog (const ros::TimerEvent& event)
   }
 
   if (timed_out) {
-    ROS_INFO("Device timed out. Flushing device."); 
-    device_->flushDeviceStreams();
+    ROS_INFO("Device timed out. Flushing device.");
+    if(subdevs_&FREENECT_DEVICE_CAMERA) device_->flushDeviceStreams();
   }
 
 }

@@ -1,5 +1,5 @@
 <launch>
-  <include file="$(find freenect_launch)/launch/freenect.launch">
+  <include file="$(find freenect_launch)/launch/freenect2.launch">
     <arg name="camera"                          value="kinect" />
     <arg name="motor_processing"                value="true" />
     <arg name="audio_processing"                value="false" />

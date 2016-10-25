@@ -10,11 +10,16 @@ namespace freenect_camera {
 
     public:
 
+
+      static FreenectDriver& getInstance(freenect_device_flags subdevs) {
+        static FreenectDriver instance(subdevs);
+        return instance;
+      }
+
       static FreenectDriver& getInstance() {
         static FreenectDriver instance;
         return instance;
       }
-
       void shutdown() {
         thread_running_ = false;
         freenect_thread_->join();
@@ -68,7 +73,7 @@ namespace freenect_camera {
       const char* getSerialNumber(unsigned device_idx) {
         if (device_idx < getNumberDevices())
           return device_serials_[device_idx].c_str();
-        throw std::runtime_error("libfreenect: device idx out of range"); 
+        throw std::runtime_error("libfreenect: device idx out of range");
       }
 
       boost::shared_ptr<FreenectDevice> getDeviceByIndex(unsigned device_idx) {
@@ -105,17 +110,31 @@ namespace freenect_camera {
 
     private:
       FreenectDriver() {
-        freenect_init(&driver_, NULL);
+        freenect_init(&driver_, NULL);  //init driver_ handle
         freenect_set_log_level(driver_, FREENECT_LOG_FATAL); // Prevent's printing stuff to the screen
         freenect_select_subdevices(driver_, (freenect_device_flags)(FREENECT_DEVICE_CAMERA));
         thread_running_ = false;
+        subdevs_=(freenect_device_flags)(FREENECT_DEVICE_CAMERA);
       }
-
+      //add support for select subdevs such as motor or audio
+      FreenectDriver(freenect_device_flags subdevs) {
+        freenect_init(&driver_, NULL);  //init driver_ handle
+        freenect_set_log_level(driver_, FREENECT_LOG_FATAL); // Prevent's printing stuff to the screen
+        //open camera as default if not select any subdevs
+        if(0==(subdevs&(FREENECT_DEVICE_MOTOR | FREENECT_DEVICE_CAMERA | FREENECT_DEVICE_AUDIO)))
+        {
+          ROS_INFO("Did not select any subdevs,open AUDIO as default.\n");
+          subdevs=(freenect_device_flags)(FREENECT_DEVICE_AUDIO);
+        }
+        freenect_select_subdevices(driver_, subdevs);
+        thread_running_ = false;
+        subdevs_=subdevs;
+      }
       freenect_context* driver_;
       std::vector<std::string> device_serials_;
       boost::shared_ptr<boost::thread> freenect_thread_;
       boost::shared_ptr<FreenectDevice> device_;
-
+      freenect_device_flags subdevs_;
       bool thread_running_;
   };
 

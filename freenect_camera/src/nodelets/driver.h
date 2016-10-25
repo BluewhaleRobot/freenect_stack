@@ -51,8 +51,8 @@
 #include <freenect_camera/FreenectConfig.h>
 
 // freenect wrapper
-#include <freenect_camera/freenect_driver.hpp>
-
+//#include <freenect_camera/freenect_driver.hpp>
+#include <freenect_camera/tilt_driver.hpp>
 // diagnostics
 #include <diagnostic_updater/diagnostic_updater.h>
 #include <diagnostic_updater/publisher.h>
@@ -119,6 +119,16 @@ namespace freenect_camera
       void updateDiagnostics();
       bool close_diagnostics_;
 
+      bool close_tiltThread_;
+      boost::thread tilt_thread_;
+      TiltDriver tiltDriver_;
+
+      bool motor_processing_;
+      bool audio_processing_;
+      bool rgb_processing_;
+      bool ir_processing_;
+      bool depth_processing_;
+      freenect_device_flags subdevs_;
       // publish methods
       void publishRgbImage(const ImageBuffer& image, ros::Time time) const;
       void publishDepthImage(const ImageBuffer& depth, ros::Time time) const;
@@ -166,6 +176,7 @@ namespace freenect_camera
 
       std::map<OutputMode, int> mode2config_map_;
       std::map<int, OutputMode> config2mode_map_;
+      unsigned int num_frame_;
   };
 }
 

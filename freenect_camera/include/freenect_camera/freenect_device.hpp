@@ -25,6 +25,7 @@ namespace freenect_camera {
   }
 
   class FreenectDriver;
+  class TiltDriver;
 
   class FreenectDevice : public boost::noncopyable {
 
@@ -32,8 +33,15 @@ namespace freenect_camera {
 
       FreenectDevice(freenect_context* driver, std::string serial) {
         openDevice(driver, serial);
-        flushDeviceStreams();
-
+        if(freenect_enabled_subdevices(driver)& FREENECT_DEVICE_CAMERA)
+        {
+          ROS_INFO("flushDevice\n");
+          flushDeviceStreams();
+        }
+        else
+        {
+          device_flush_enabled_=false;
+        }
         //Initialize default variables
         streaming_video_ = should_stream_video_ = false;
         new_video_resolution_ = getDefaultImageMode();
@@ -57,7 +65,7 @@ namespace freenect_camera {
 
       void flushDeviceStreams() {
         device_flush_start_time_ = boost::posix_time::microsec_clock::local_time();
-        device_flush_enabled_ = true; 
+        device_flush_enabled_ = true;
         ROS_INFO("Starting a 3s RGB and Depth stream flush.");
       }
 
@@ -66,8 +74,12 @@ namespace freenect_camera {
           throw std::runtime_error("[ERROR] Unable to open specified kinect");
         }
         freenect_set_user(device_, this);
-        freenect_set_depth_callback(device_, freenectDepthCallback);
-        freenect_set_video_callback(device_, freenectVideoCallback);
+
+        //freenect_set_depth_callback(device_, freenectDepthCallback);
+        //freenect_set_video_callback(device_, freenectVideoCallback);
+
+        if(freenect_enabled_subdevices(driver)& FREENECT_DEVICE_CAMERA) freenect_set_depth_callback(device_, freenectDepthCallback);
+        if(freenect_enabled_subdevices(driver)& FREENECT_DEVICE_CAMERA) freenect_set_video_callback(device_, freenectVideoCallback);
         driver_ = driver;
         device_serial_ = serial;
         registration_ = freenect_copy_registration(device_);
@@ -136,19 +148,19 @@ namespace freenect_camera {
       /* CALLBACK ASSIGNMENT FUNCTIONS */
 
       template<typename T> void registerImageCallback (
-          void (T::*callback)(const ImageBuffer& image, void* cookie), 
+          void (T::*callback)(const ImageBuffer& image, void* cookie),
           T& instance, void* cookie = NULL) {
         image_callback_ = boost::bind(callback, boost::ref(instance), _1, cookie);
       }
 
       template<typename T> void registerDepthCallback (
-          void (T::*callback)(const ImageBuffer& depth_image, void* cookie), 
+          void (T::*callback)(const ImageBuffer& depth_image, void* cookie),
           T& instance, void* cookie = NULL) {
         depth_callback_ = boost::bind(callback, boost::ref(instance), _1, cookie);
       }
 
       template<typename T> void registerIRCallback (
-          void (T::*callback)(const ImageBuffer& ir_image, void* cookie), 
+          void (T::*callback)(const ImageBuffer& ir_image, void* cookie),
           T& instance, void* cookie = NULL) {
         ir_callback_ = boost::bind(callback, boost::ref(instance), _1, cookie);
       }
@@ -174,7 +186,7 @@ namespace freenect_camera {
       }
 
       bool findCompatibleImageMode(const OutputMode& mode, OutputMode& compatible_mode) const {
-        freenect_frame_mode new_mode = 
+        freenect_frame_mode new_mode =
           freenect_find_video_mode(mode, video_buffer_.metadata.video_format);
         if (!new_mode.is_valid) {
           compatible_mode = getDefaultImageMode();
@@ -187,7 +199,7 @@ namespace freenect_camera {
       void stopImageStream() {
         boost::lock_guard<boost::recursive_mutex> lock(m_settings_);
         //std::cout << "STOP IMAGE STREAM" << std::endl;
-        should_stream_video_ = 
+        should_stream_video_ =
           (isImageStreamRunning()) ? false : streaming_video_;
       }
 
@@ -205,7 +217,7 @@ namespace freenect_camera {
 
       void stopIRStream() {
         boost::lock_guard<boost::recursive_mutex> lock(m_settings_);
-        should_stream_video_ = 
+        should_stream_video_ =
           (isIRStreamRunning()) ? false : streaming_video_;
       }
 
@@ -237,7 +249,7 @@ namespace freenect_camera {
       }
 
       bool findCompatibleDepthMode(const OutputMode& mode, OutputMode& compatible_mode) const {
-        freenect_frame_mode new_mode = 
+        freenect_frame_mode new_mode =
           freenect_find_depth_mode(mode, depth_buffer_.metadata.depth_format);
         if (!new_mode.is_valid) {
           compatible_mode = getDefaultDepthMode();
@@ -254,7 +266,7 @@ namespace freenect_camera {
 
       void setDepthRegistration(bool enable) {
         boost::lock_guard<boost::recursive_mutex> lock(m_settings_);
-        new_depth_format_ = 
+        new_depth_format_ =
           (enable) ? FREENECT_DEPTH_REGISTERED : FREENECT_DEPTH_MM;
       }
 
@@ -278,7 +290,7 @@ namespace freenect_camera {
       static void freenectDepthCallback(
           freenect_device *dev, void *depth, uint32_t timestamp) {
 
-        FreenectDevice* device = 
+        FreenectDevice* device =
             static_cast<FreenectDevice*>(freenect_get_user(dev));
         device->depthCallback(depth);
       }
@@ -286,7 +298,7 @@ namespace freenect_camera {
       static void freenectVideoCallback(
           freenect_device *dev, void *video, uint32_t timestamp) {
 
-        FreenectDevice* device = 
+        FreenectDevice* device =
             static_cast<FreenectDevice*>(freenect_get_user(dev));
         device->videoCallback(video);
       }
@@ -294,7 +306,7 @@ namespace freenect_camera {
     private:
 
       friend class FreenectDriver;
-
+      friend class TiltDriver;
       freenect_context* driver_;
       freenect_device* device_;
       std::string device_serial_;
@@ -308,7 +320,7 @@ namespace freenect_camera {
       bool streaming_video_;
       bool should_stream_video_;
       freenect_resolution new_video_resolution_;
-      freenect_video_format new_video_format_; 
+      freenect_video_format new_video_format_;
 
       ImageBuffer depth_buffer_;
       bool streaming_depth_;
@@ -331,8 +343,9 @@ namespace freenect_camera {
         bool stop_device_flush = false;
 
         if (device_flush_enabled_) {
-          boost::posix_time::ptime current_time = 
-              boost::posix_time::microsec_clock::local_time(); 
+
+          boost::posix_time::ptime current_time =
+              boost::posix_time::microsec_clock::local_time();
           if ((current_time - device_flush_start_time_).total_milliseconds() > 3000) {
             device_flush_enabled_ = false;
             stop_device_flush = true;
@@ -340,7 +353,7 @@ namespace freenect_camera {
           }
         }
 
-        bool change_video_settings = 
+        bool change_video_settings =
           video_buffer_.metadata.video_format != new_video_format_ ||
           video_buffer_.metadata.resolution != new_video_resolution_ ||
           ((streaming_video_ != should_stream_video_) && !device_flush_enabled_) ||
@@ -360,7 +373,7 @@ namespace freenect_camera {
           if (video_buffer_.metadata.resolution != new_video_resolution_ ||
               video_buffer_.metadata.video_format != new_video_format_) {
             try {
-              allocateBufferVideo(video_buffer_, new_video_format_, 
+              allocateBufferVideo(video_buffer_, new_video_format_,
                  new_video_resolution_, registration_);
             } catch (std::runtime_error& e) {
               printf("[ERROR] Unsupported video format/resolution provided. %s\n",
@@ -385,7 +398,7 @@ namespace freenect_camera {
           return;
         }
 
-        bool change_depth_settings = 
+        bool change_depth_settings =
           depth_buffer_.metadata.depth_format != new_depth_format_ ||
           depth_buffer_.metadata.resolution != new_depth_resolution_ ||
           ((streaming_depth_ != should_stream_depth_) && !device_flush_enabled_) ||
@@ -405,7 +418,7 @@ namespace freenect_camera {
           if (depth_buffer_.metadata.resolution != new_depth_resolution_ ||
               depth_buffer_.metadata.depth_format != new_depth_format_) {
             try {
-              allocateBufferDepth(depth_buffer_, new_depth_format_, 
+              allocateBufferDepth(depth_buffer_, new_depth_format_,
                  new_depth_resolution_, registration_);
             } catch (std::runtime_error& e) {
               printf("[ERROR] Unsupported depth format/resolution provided. %s\n",

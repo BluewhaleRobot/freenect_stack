@@ -66,7 +66,7 @@
   <arg name="diagnostics_min_frequency" default="30.0" />
   <arg name="diagnostics_tolerance" default="0.05" />
   <arg name="diagnostics_window_time" default="5.0" />
- 
+
   <!-- Push down all topics/nodelets into "camera" namespace -->
   <group ns="$(arg camera)">
 
@@ -111,9 +111,9 @@
       <arg name="ir_processing"                   value="$(arg ir_processing)" />
       <arg name="depth_processing"                value="$(arg depth_processing)" />
     </include>
-    
+
     <!-- Load standard constellation of processing nodelets -->
-    <include if="$(arg load_driver)" file="$(find rgbd_launch)/launch/includes/processing.launch.xml">
+    <include if="$(arg load_driver)" file="$(find rgbd_launch)/launch/includes/processing2.launch.xml">
       <arg name="manager"                         value="$(arg manager)" />
       <arg name="rgb"                             value="$(arg rgb)" />
       <arg name="ir"                              value="$(arg ir)" />
@@ -130,12 +130,12 @@
       <arg name="hw_registered_processing"        value="$(arg hw_registered_processing)" />
       <arg name="sw_registered_processing"        value="$(arg sw_registered_processing)" />
     </include>
-  
+
   </group> <!-- camera -->
 
   <!-- Load reasonable defaults for the relative pose between cameras -->
   <include if="$(arg publish_tf)"
-	   file="$(find rgbd_launch)/launch/kinect_frames.launch">
+	   file="$(find rgbd_launch)/launch/kinect_frames2.launch">
     <arg name="camera" value="$(arg camera)" />
   </include>
 
