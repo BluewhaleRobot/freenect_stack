@@ -17,3 +17,5 @@ roslaunch freenect_launch freenect-xyz.launch
 rostopic pub /set_tilt_degree std_msgs/Int16 '{data: -20}' -r 1
 ```
 {data: -20} is the motor position,you can change -20 to any integer number in [-30 30].
+
+## Made with ❤️ by BlueWhale Tech corp.
