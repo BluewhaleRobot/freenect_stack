@@ -304,7 +304,7 @@ void DriverNodelet::onInitImpl ()
   if(motor_processing_)
   {
     close_tiltThread_ = false;
-    tiltDriver_= TiltDriver(device_,&close_tiltThread_);
+    tiltDriver_= TiltDriver(device_,close_tiltThread_);
     tilt_thread_ = boost::thread(boost::bind(&TiltDriver::run, &tiltDriver_));
   }
 
