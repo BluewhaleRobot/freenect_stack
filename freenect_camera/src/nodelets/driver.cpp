@@ -935,4 +935,4 @@ void DriverNodelet::watchDog (const ros::TimerEvent& event)
 
 // Register as nodelet
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_DECLARE_CLASS (freenect_camera, driver, freenect_camera::DriverNodelet, nodelet::Nodelet);
+PLUGINLIB_EXPORT_CLASS(freenect_camera::DriverNodelet, nodelet::Nodelet)
