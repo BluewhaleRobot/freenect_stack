@@ -20,13 +20,9 @@ public:
     set_degree_ = 0.0;
     current_degree_ = 0.0;
     device_ =NULL;
-<<<<<<< HEAD
-    close_tiltThread_=false;
-=======
->>>>>>> be1fafd7148ba1ebd372a1fc1c0d462bd4ec7d72
   }
 
-  TiltDriver(boost::shared_ptr<FreenectDevice> device,bool close_tiltThread){
+  TiltDriver(boost::shared_ptr<FreenectDevice> device,bool * close_tiltThread){
     close_tiltThread_=close_tiltThread;
     if(device)
     {
@@ -56,7 +52,7 @@ public:
 
     ros::Rate r(1);//发布周期为1hz
     //ROS_INFO("get you3!\n");
-    while (!(close_tiltThread_))
+    while (!(*close_tiltThread_))
     {
         if(device_ready_)
         {
@@ -98,7 +94,7 @@ private:
   std::string cmd_topic_;
   bool device_ready_;
   ros::Publisher mTiltPub_;
-  bool close_tiltThread_;
+  bool* close_tiltThread_;
 };
 
 
