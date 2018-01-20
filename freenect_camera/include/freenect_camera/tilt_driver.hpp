@@ -20,7 +20,10 @@ public:
     set_degree_ = 0.0;
     current_degree_ = 0.0;
     device_ =NULL;
+<<<<<<< HEAD
     close_tiltThread_=false;
+=======
+>>>>>>> be1fafd7148ba1ebd372a1fc1c0d462bd4ec7d72
   }
 
   TiltDriver(boost::shared_ptr<FreenectDevice> device,bool close_tiltThread){
